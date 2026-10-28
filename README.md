@@ -1,59 +1,42 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Protótipo de gestão de água
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplicação de demonstração em Laravel para gerir facturas e pagamentos de água com dados simulados. O desenvolvimento segue fases; as Fases 1 e 2 estão implementadas neste momento.
 
-## About Laravel
+## Fase 1 — autenticação e perfis
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Login e logout usam a autenticação de sessão do Laravel, validação por Form Request, CSRF, limitação de tentativas e regeneração da sessão após login.
+- Contas inactivas não iniciam sessão; uma sessão existente também é terminada quando a conta fica inactiva.
+- Os perfis `admin`, `agente` e `utente` são controlados por middleware. A Policy de `User` permite a um utilizador consultar apenas a própria conta; as operações de gestão ficam reservadas ao administrador.
+- O administrador pode criar contas e activar/desactivar utilizadores; a última conta administrativa activa e a própria conta não podem ser desactivadas.
+- O modelo usa a tabela `utilizadores` e os campos de identidade e perfil definidos para o projecto. A migração converte a tabela inicial do Laravel para esse esquema.
+- Não existe registo público. A conta administrativa de demonstração é criada pelo seeder.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Fase 2 — utentes, contadores e tarifas
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- O administrador pode registar e actualizar utentes e contadores; em vez de apagar registos, pode marcá-los como inactivos para preservar as referências.
+- Um utente pode ter uma conta de portal opcional. A ligação só aceita contas do perfil `utente` e a relação é única.
+- As tarifas são globais (o modelo não define categorias) e cada data de vigência é única para evitar selecção ambígua. Uma nova tarifa representa uma alteração futura; os registos não são apagados nem editados para preservar o histórico.
+- Os estados de utentes e contadores são `activo` ou `inactivo`.
 
-## Learning Laravel
+## Fase 3 — leituras e cálculo do consumo
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- Agentes e administradores podem registar leituras; o sistema deriva a anterior da última actual do contador, calcula o consumo e rejeita leituras inferiores ou datas fora da sequência.
+- A primeira leitura usa anterior `0`, conforme decisão para este protótipo. Leituras não podem anteceder a instalação do contador, ser futuras ou repetir/preceder a última data registada.
+- A leitura e a factura são persistidas na mesma transacção. A factura usa a tarifa mais recente cuja vigência começou até à data da leitura; a emissão ocorre na data actual do sistema e o vencimento é calculado a partir da emissão e do prazo dessa tarifa.
+- Não há criação manual de facturas nem endpoints de edição/eliminação de leituras ou facturas. Utentes só podem consultar facturas associadas à sua conta; agentes consultam facturas e leituras.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Executar localmente
 
-## Laravel Sponsors
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+npm install
+npm run build
+php artisan serve
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Conta local para demonstração: `test@example.com` / `password`. É uma credencial exclusivamente simulada para este protótipo; não a reutilize noutros ambientes.
 
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Pagamentos, multas, PDF e relatórios ainda não estão implementados. A aplicação não deve ser implantada para uso empresarial.
